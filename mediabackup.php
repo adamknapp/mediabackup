@@ -112,45 +112,48 @@ function getDestinationFolder($in_strFileName, &$aFolderData)
 
         $iYear  = $aDate[0];
         $iMonth = $aDate[1];
-        $strMon = '';
+        $strMon = '0' . $iMonth;
         $iDay   = $aDate[2];
 
         switch($iMonth) {
            case '1':
-              $strMon = 'Jan';
+              $strMon .= 'Jan';
            break;
            case '2':
-              $strMon = 'Feb';
+              $strMon .= 'Feb';
            break;
            case '3':
-              $strMon = 'Mar';
+              $strMon .= 'Mar';
            break;
            case '4':
-              $strMon = 'Apr';
+              $strMon .= 'Apr';
            break;
            case '5':
-              $strMon = 'May';
+              $strMon .= 'May';
            break;
            case '6':
-              $strMon = 'Jun';
+              $strMon .= 'Jun';
            break;
            case '7':
-              $strMon = 'Jul';
+              $strMon .= 'Jul';
            break;
            case '8':
-              $strMon = 'Aug';
+              $strMon .= 'Aug';
            break;
            case '9':
-              $strMon = 'Sep';
+              $strMon .= 'Sep';
            break;
            case '10':
-              $strMon = 'Oct';
+              $strMon = $iMonth; 
+              $strMon .= 'Oct';
            break;
            case '11':
-              $strMon = 'Nov';
+              $strMon = $iMonth;            
+              $strMon .= 'Nov';
            break;
            case '12':
-              $strMon = 'Dec';
+              $strMon = $iMonth;            
+              $strMon .= 'Dec';
            break;
         }
 
