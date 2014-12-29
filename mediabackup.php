@@ -12,12 +12,12 @@
 #
 # GoogleDrive makes this extremly easy with the native app you can install
 #
+# 
 #
-# to run: php mediabackup.php
-# Run nightly in crontab -e
-# current cron setting:
-# */5 * * * * /usr/bin/php /Users/KnappleMacMini/Documents/code/mediabackup.php  - every 5 minutes
-# 5 0 * * * /usr/bin/php /Users/KnappleMacMini/Documents/code/mediabackup.php - once a night kickoff
+# Recommended crontab configurations
+# This will run the program every morning at 12:05 am
+# > crontab -e 
+# 5 0 * * * /usr/bin/php /Users/KnappleMacMini/Documents/code/mediabackup/mediabackup.php
 
 
 #Home Directory
@@ -25,11 +25,8 @@
 define('HOME', '/Users/aknapp/Documents/code/mediabackup/');
 
 #Define the logs we're going to write to
-define(INFOLOG, HOME . '/info.log');
-define(ERRORLOG,HOME . '/error.log');
-
-//define('LOG', '/Users/KnappleMacMini/Documents/code/mediabackup.log');
-//define('ERRORLOG', '/Users/KnappleMacMini/Documents/code/mediabackup.error');
+define(INFOLOG, HOME . 'info.log');
+define(ERRORLOG,HOME . 'error.log');
 
 #Destination folders. These are the folders that we will pull from Home/*
 #Comma seperated list?
@@ -65,6 +62,8 @@ function getCurrentTime()
 
 function getDeleteTime()
 {
+   //TODO - change this to '-' to allow for imediate deletes of files when epoch is set.
+   //This will help remove pressure from the local disk now
    return time() + (intval(DEL_RETENTION_DAYS) * 24 * 60 * 60);
 }
 
