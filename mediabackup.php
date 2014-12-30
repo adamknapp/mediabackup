@@ -331,9 +331,8 @@ function sendToNAS($in_strFileName, $in_strType, $in_strNext)
          logOutput(INFOLOG,'WARNING: [' . $in_strType . '] File: "' . $strPath . $strFile . '" already exists skipping ...');
          $bSkip = true;
       } else {
-         logOutput(INFOLOG,'ERROR: [' . $in_strType . '] File: "' . $strPath . $strFile . '" is size 0 ABORT! ...');
-         logOutput(ERRORLOG,'ERROR: [' . $in_strType . '] File: "' . $strPath . $strFile . '" is size 0 ABORT! ...');
-         exit;
+         logOutput(INFOLOG,'WARNING: [' . $in_strType . '] File: "' . $strPath . $strFile . '" is size 0 ... removing reference ...');
+         exec('rm "' . $strPath . $strFile . '"', $aOutput);
       }
       //logOutput(INFOLOG,'INFO: File "' . $strFile. '" already exists  … creating new name');
       //$strFile = getNewFileName($strPath, $strFile); 
@@ -427,7 +426,7 @@ function traverseDirectories()
             //    time for it to sync large files. We'll use file size to determine sleep
 	 
             //GoTo sleep once we hit 300MB transferred or 100 files processed 
-            if($iCurrentCount >= 100 || $dCurrentSize > 300) {
+            if($iCurrentCount >= 1000 || $dCurrentSize > 300) {
               //Rule - sleep 1 second for every 10MB transfered (10 seconds default for DELs)
               $iSleep = 10;
               if($dCurrentSize > 100) {
