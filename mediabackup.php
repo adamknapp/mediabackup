@@ -21,25 +21,27 @@
 
 
 #Home Directory
-//define('HOME', '/Users/KnappleMacMini/');
-define('HOME', '/Users/aknapp/Documents/code/mediabackup/');
+define('HOME', '/Users/KnappleMacMini/');
+define('HOME_LOG', HOME . 'Documents/logs/');
 
 #Define the logs we're going to write to
-define(INFOLOG, HOME . 'info.log');
-define(ERRORLOG,HOME . 'error.log');
+define(INFOLOG, HOME_LOG . 'info.log');
+define(ERRORLOG,HOME_LOG . 'error.log');
 
 #Destination folders. These are the folders that we will pull from Home/*
 #Comma seperated list?
-define('SOURCE_DIRS', 'Pictures/IPhoneDump,Pictures/IPhoneDumpJordan');
+#define('SOURCE_DIRS', 'Pictures/IPhoneDump,Pictures/IPhoneDumpJordan');
+define('SOURCE_DIRS', 'Pictures/IPhoneDump');
 
 #Output directories
 #The first is the NAS, the location of the NAS
 #The second is google drive specific
-define('NAS_MEDIA_HOME', '/Volumes/Volume_1/media');
+define('NAS_MEDIA_HOME', '/Volumes/Volume_1-1/media');
 define('GOOGLEDRIVEHOME','/Users/KnappleMacMini/Google Drive/Home/media'); 
 
 #Keeping a file for 30 days locally before deleting
-define('DEL_RETENTION_DAYS', 30);
+#TODO - change this back to 14 or 30
+define('DEL_RETENTION_DAYS', 7);
 
 #XAttributes are 'extra attributes' that we're adding to the file to 
 #ensure we can make the appropriate decisions to at the right time
@@ -49,7 +51,7 @@ define('XATTR_DEL_EPOCH', 'delepoch'); //The timestamp we'll delete from
 define('XATTR_ORIRGINALDTE', 'kMDItemContentCreationDateOriginal'); 
 
 //Global Counters
-$G_IPROCESSLIMIT = 2000;
+$G_IPROCESSLIMIT = 0;
 $G_I_ERRORED = 0;
 $G_I_PROCESSED = 0;
 
@@ -112,7 +114,7 @@ function getDestinationFolder($in_strFileName, &$aFolderData)
 
         $iYear  = $aDate[0];
         $iMonth = $aDate[1];
-        $strMon = '0' . $iMonth;
+        $strMon = $iMonth;
         $iDay   = $aDate[2];
 
         switch($iMonth) {
@@ -144,15 +146,12 @@ function getDestinationFolder($in_strFileName, &$aFolderData)
               $strMon .= 'Sep';
            break;
            case '10':
-              $strMon = $iMonth; 
               $strMon .= 'Oct';
            break;
            case '11':
-              $strMon = $iMonth;            
               $strMon .= 'Nov';
            break;
            case '12':
-              $strMon = $iMonth;            
               $strMon .= 'Dec';
            break;
         }
@@ -238,14 +237,19 @@ function processFile($in_strFileName)
       case 'GOOGLE':
          //CHANGE 'OFF' to 'GOOGLE'
          //Send to Google 
-         $aFileData['size'] = sendToNAS($in_strFileName, $aStatus[1], 'DEL');
+         $aFileData['size'] = sendToNAS($in_strFileName, $aFileData['status'], 'DEL');
       break;
       case 'SKP':
          //Skip this file - an error occurred - logs should be able to tell you what's happening
       break;
       default:
         //empty - needs to be copied
+        $aFileData['status'] = 'NAS';
         $aFileData['size'] = sendToNAS($in_strFileName, 'NAS', 'GOOGLE');
+        if($aFileData['size'] == -1) {
+           $aFileData['size']   = 0;
+           $aFileData['status'] = 'ERROR';
+        } 
       break;
    }
    return $aFileData;
@@ -286,7 +290,7 @@ function sendToNAS($in_strFileName, $in_strType, $in_strNext)
    
    if(!getDestinationFolder($in_strFileName, $aFolderData)) {
       //failed prepping file
-      return;
+      return -1;
    }
 
    $dFileSizeMB     = 0.0;
@@ -317,17 +321,28 @@ function sendToNAS($in_strFileName, $in_strType, $in_strNext)
 
    $dFileSizeMB = round((filesize($in_strFileName)/1024/1024),2);
 
-   //Make directory at destination
-   logOutput(INFOLOG,'INFO: Send "' . $in_strFileName . '" to ' . $strDestination . ': ' . $strPath . ' => Day:' . $aFolderData['day']. ' Size: ' . $dFileSizeMB . ' MB Time: ');
-
    //Make directory if it doesn't exist
    exec('mkdir -p "' . $strPath . '"', $aOutput);
   
+  
+   $bSkip = false;
    if(file_exists($strPath . $strFile)) {
-      logOutput(INFOLOG,'INFO: File "' . $strFile. '" already exists  … creating new name');
-      $strFile = getNewFileName($strPath, $strFile); 
-      logOutput(INFOLOG,'INFO: New File Name "' . $strFile);
+      if(filesize($strPath . $strFile) > 0) {
+         logOutput(INFOLOG,'WARNING: [' . $in_strType . '] File: "' . $strPath . $strFile . '" already exists skipping ...');
+         $bSkip = true;
+      } else {
+         logOutput(INFOLOG,'ERROR: [' . $in_strType . '] File: "' . $strPath . $strFile . '" is size 0 ABORT! ...');
+         logOutput(ERRORLOG,'ERROR: [' . $in_strType . '] File: "' . $strPath . $strFile . '" is size 0 ABORT! ...');
+         exit;
+      }
+      //logOutput(INFOLOG,'INFO: File "' . $strFile. '" already exists  … creating new name');
+      //$strFile = getNewFileName($strPath, $strFile); 
+      //logOutput(INFOLOG,'INFO: New File Name "' . $strFile);
    }
+
+if(!$bSkip) {
+   logOutput(INFOLOG,'INFO: SendTo[' . $in_strType . '] File:"' . $in_strFileName . '" to ' . $strDestination . ': ' . $strPath . $strFile . ' =>  Size: ' . $dFileSizeMB . ' MB Time: ');
+   
 
    $strNewFile = $strPath . $strFile;
 
@@ -338,8 +353,16 @@ function sendToNAS($in_strFileName, $in_strType, $in_strNext)
    $endtime   = getCurrentTime();
    $totaltime = ($endtime - $starttime); 
 
+   $iTime = round($totaltime, 2);
+   
    logOutput(INFOLOG,round($totaltime, 2) . ' seconds', false);
 
+   if($iTime == 0) {
+      //ABORT
+      logOutput(ERRORLOG, 'ERROR: time took 0 seconds, something is fishy - stopping program');         
+      exit;
+   }
+}   
    //make sure the date is accurate
    //helps on NAS, not on GoogleDrive
    exec('touch -t ' . $strTouchDt  . ' "' . $strNewFile . '"', $aOutput);
@@ -373,43 +396,61 @@ function traverseDirectories()
       }
       
       for($i = 0; $i < count($aOutput); $i++) {
+      
          $strFileName = $strDir  . '/' . $aOutput[$i];
-         $aFileData   = processFile($strFileName);
-
-         //DEBUG    
-         //echo "\nFilename: " . $strFileName . "; Status: " . $aFileData['status'] . "\n";
          
-         $G_I_PROCESSED++;
-         $iTypeCount++;
-         $iCurrentCount++;
+         //Go through the whole lifecycle of a file and set the delete
+         $bDone = false;
 
-         $dCurrentSize += $aFileData['size'];
-         $dTotalSize   += $dCurrentSize;
+         //Uncomment this to wipe out all attributes in the directories you're looking for. 
+         //This is a good way to re-run the transferrs over and over again to ensure all files have been captured
+         //to the locations desired
+         //exec('xattr -c "'  . $strFileName . '"', $aOutput); echo "\nFilename: " . $strFileName;$bDone = true;
+         
+         while(!$bDone) {
+            $aFileData   = processFile($strFileName);
 
-         //There are two reasons to pause or 'sleep' the program
-         //1.) Crushing the system (either local) or fast NAS by ripping
-         //    through a ton of files quickly or
-         //2.) Processing a ton of data. Especially for Google Drive, it takes
-         //    time for it to sync large files. We'll use file size to determine sleep
+            //DEBUG    
+            //echo "\nFilename: " . $strFileName . "; Status: " . $aFileData['status'];
+         
+            $G_I_PROCESSED++;
+            $iTypeCount++;
+            $iCurrentCount++;
+
+            $dCurrentSize += $aFileData['size'];
+            $dTotalSize   += $dCurrentSize;
+
+            //There are two reasons to pause or 'sleep' the program
+            //1.) Crushing the system (either local) or fast NAS by ripping
+            //    through a ton of files quickly or
+            //2.) Processing a ton of data. Especially for Google Drive, it takes
+            //    time for it to sync large files. We'll use file size to determine sleep
 	 
-         //GoTo sleep once we hit 300MB transferred or 100 files processed 
-         if($iCurrentCount >= 100 || $dCurrentSize > 300) {
-           //Rule - sleep 1 second for every 10MB transfered (10 seconds default for DELs)
-           $iSleep = 10;
-           if($dCurrentSize > 100) {
-              round($dCurrentSize/10, 2);
-           }
-           logOutput(INFOLOG,'INFO: SLEEPING for (' . $iSleep . ') seconds ... this run processed (' . $iCurrentCount . ') files and transferred (' . $dCurrentSize . ')MBs'); 
-           logOutput(INFOLOG,'INFO: progress ... processed ' . $G_I_PROCESSED . '/' . count($aOutput) . ' ' . (round(($G_I_PROCESSED/count($aOutput))*100,2)) . '% complete ... transferred (' . $dTotalSize . ')MBs'); 
+            //GoTo sleep once we hit 300MB transferred or 100 files processed 
+            if($iCurrentCount >= 100 || $dCurrentSize > 300) {
+              //Rule - sleep 1 second for every 10MB transfered (10 seconds default for DELs)
+              $iSleep = 10;
+              if($dCurrentSize > 100) {
+                 round($dCurrentSize/10, 2);
+              }
+              logOutput(INFOLOG,'INFO: SLEEPING for (' . $iSleep . ') seconds ... this run processed (' . $iCurrentCount . ') files and transferred (' . $dCurrentSize . ')MBs'); 
+              logOutput(INFOLOG,'INFO: progress ... processed ' . $G_I_PROCESSED . '/' . count($aOutput) . ' ' . (round(($G_I_PROCESSED/count($aOutput))*100,2)) . '% complete ... transferred (' . $dTotalSize . ')MBs'); 
            
-           sleep($iSleep);
+              sleep($iSleep);
 
-           $iCurrentCount = 0;
-           $dCurrentSize  = 0;
-         }
+              $iCurrentCount = 0;
+              $dCurrentSize  = 0;
+            }
 
-         if($iTypeCount == $iNumToProcess) {
-            $i = count($aOutput) + 1;
+            if($iTypeCount == $iNumToProcess) {
+               $i = count($aOutput) + 1;
+               $bDone = true;
+            }
+
+            if($aFileData['status'] == 'DEL' || $aFileData['status'] == 'ERROR') {
+               $bDone = true;
+            }
+         
          }
       }
    }
